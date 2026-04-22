@@ -20,7 +20,7 @@ export const InfoComponentsContainer = styled.div`
 `;
 
 export const TitleContainer = styled.div`
-    font-size: 14px;
+    font-size: 25px;
     margin-bottom: 1rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;

@@ -48,7 +48,7 @@ export default function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-
+          <Route path="/clock/:id" element={<MainPage />} />
           <Route
             element={
               <PrivateRoute>
@@ -61,7 +61,6 @@ export default function App() {
             <Route path="/participants" element={<ParticipantsPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/clocks" element={<ClocksPage />} />
-            <Route path="/clock/:id" element={<MainPage />} />
             <Route path="*" element={<Navigate to="/users" />} />
           </Route>
         </Routes>

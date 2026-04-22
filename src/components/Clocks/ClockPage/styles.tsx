@@ -26,8 +26,9 @@ export const MainTitle = styled.div`
 export const MainContentContainer = styled.div`
   flex: 1 1 0%;
   display: grid;
-  grid-template-columns: 1fr 2fr 1fr;
+  grid-template-columns: 0.5fr 1fr 0.5fr;
   gap: 2rem;
+  margin-top: 2.5%;
 `;
 
 export const ContentContainer = styled.div`
@@ -36,7 +37,7 @@ export const ContentContainer = styled.div`
   gap: 1.5rem;
 `;
 export const Content = styled.div`
-  font-size: 2.5rem;
+  font-size: 2.6rem;
   font-weight: 600;
 `;
 // Центральная панель
@@ -119,6 +120,7 @@ export const EdgeBottomRight = styled.div`
 
 export const TimerContainer = styled.div`
   position: relative;
+  width: 100%;
 `;
 
 export const TimerWrapper = styled.div`
@@ -143,7 +145,7 @@ export const TimerWrapper = styled.div`
 `;
 
 export const TimerText = styled.div`
-  font-size: 8rem;
+  font-size: 12rem;
   line-height: 1;
   color: rgb(255, 255, 255);
   font-family: "Montserrat", sans-serif;
@@ -184,7 +186,7 @@ export const DecorativeLine = styled.div`
 `;
 
 export const CurrentBlindText = styled.div`
-  font-size: 0.875rem;
+  font-size: 1.5rem;
   margin-bottom: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.2em;
@@ -221,7 +223,7 @@ export const NextBlindContainer = styled.div`
 `;
 
 export const NextBlindNumber = styled.div`
-  font-size: 1.875rem;
+  font-size: 3rem;
   color: rgb(255, 255, 255);
   opacity: 0.7;
   font-weight: 700;

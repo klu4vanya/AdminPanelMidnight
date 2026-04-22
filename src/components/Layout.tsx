@@ -2,11 +2,11 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import { AppBar, Toolbar, Typography, Box, Button, Stack } from "@mui/material";
 
 const menu = [
-  { label: "Users", path: "/users" },
-  { label: "Games", path: "/games" },
-  { label: "Participants", path: "/participants" },
-  { label: "History", path: "/history" },
-  { label: "Clock", path: "/clocks" },
+  { label: "Пользователи", path: "/users" },
+  { label: "Игры", path: "/games" },
+  { label: "Участники", path: "/participants" },
+  { label: "История", path: "/history" },
+  { label: "Часы", path: "/clocks" },
 ];
 
 export default function Layout() {

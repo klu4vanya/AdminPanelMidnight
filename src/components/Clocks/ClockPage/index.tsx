@@ -113,16 +113,12 @@ export default function MainPage() {
       title: "Фишек в игре",
       data: `${amountPlayers * 30000}`,
     },
-    {
-      title: "До перерыва",
-      data: "—",
-    },
   ];
 
   return (
     <MainContainer>
       <MainTitle>
-        <h1>Турнир {currentGame?.name}</h1>
+        <h1 style={{fontSize: '5rem'}}>{currentGame?.name}</h1>
       </MainTitle>
 
       <MainContentContainer>
@@ -137,7 +133,7 @@ export default function MainPage() {
 
         {/* CENTER */}
         <CentralPanelContainer>
-          <LogoContainer>
+          {/* <LogoContainer>
             <LogoWrapper>
               <img
                 src={logo}
@@ -149,7 +145,7 @@ export default function MainPage() {
             <EdgeTopRight />
             <EdgeBottomLeft />
             <EdgeBottomRight />
-          </LogoContainer>
+          </LogoContainer> */}
 
           {/* TIMER */}
           <TimerContainer>
@@ -169,7 +165,7 @@ export default function MainPage() {
             <DecorativeLine />
             <CurrentBlindText>Текущие блайнды</CurrentBlindText>
             <CurrentBlindNumber>
-              {timer ? `${timer.small_blind}/${timer.big_blind}` : "00/00"}
+              {timer ? `${timer.small_blind} / ${timer.big_blind}` : "00/00"}
             </CurrentBlindNumber>
             <DecorativeLine />
           </BlindsContainer>
@@ -194,8 +190,20 @@ export default function MainPage() {
                 : "—"}
             </NextBlindNumber>
           </NextBlindContainer>
+          <NextBlindContainer>
+            <CurrentBlindText
+              style={{
+                marginBottom: "0.5rem",
+                opacity: "0.5",
+                fontWeight: "600",
+              }}
+            >
+              До перерыва
+            </CurrentBlindText>
+            {/* <Content>{timer?.next_level?.name ?? "-"}</Content> */}
+            <NextBlindNumber>120 мин</NextBlindNumber>
+          </NextBlindContainer>
         </CentralPanelContainer>
-
         {/* RIGHT */}
         <RightPanelContainer>
           <InfoComponent title="Всего очков">
