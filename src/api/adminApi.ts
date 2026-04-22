@@ -1,6 +1,5 @@
 // api/adminApi.ts
 import axios from "axios";
- 
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "https://api.midnight-club-app.ru/api";
@@ -51,11 +50,12 @@ export const participantsAPI = {
       user_id: userId,
       value: 1,
     }),
-    addRebuy: (gameId: number, userId: number) =>
-      api.post(`/games/${gameId}/add_rebuy`, {
-        user_id: userId,
-        value: 1,
-      }),
+  addRebuy: (participantId: string, value: number) =>
+    api.patch(`/participants/${participantId}`, {
+      value,
+    }),
+  setArrived: (id: string, arrived: boolean) =>
+    api.patch(`/participants/${id}`, { arrived }),
 };
 
 export const historyAPI = {

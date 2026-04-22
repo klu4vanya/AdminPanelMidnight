@@ -38,7 +38,7 @@ export default function ParticipantsPage() {
   };
 
   // роль пользователя
-  const role = localStorage.getItem("role"); // "admin" | "dealer"
+  const role = localStorage.getItem("role");
   const isAdmin = role === "admin";
 
   const load = () => {
@@ -46,7 +46,6 @@ export default function ParticipantsPage() {
     participantsAPI.getByGame(Number(gameId)).then((res) => setList(res.data));
   };
 
-  // 🔍 фильтр
   const filteredList = list.filter((p) => {
     const name = p.user_info.nickname || p.user_info.first_name || "";
 
@@ -91,17 +90,46 @@ export default function ParticipantsPage() {
     }
   };
 
-  const handleRebuy = async (user: any) => {
-    if (!gameId) return;
-
+  const handleAddRebuy = async (p: any) => {
     try {
-      await participantsAPI.addRebuy(Number(gameId), user.user);
+      await participantsAPI.addRebuy(p.id, 1);
 
       setList((prev) =>
-        prev.map((p) => (p.id === user.id ? { ...p, rebuys: p.rebuys + 1 } : p))
+        prev.map((item) =>
+          item.id === p.id ? { ...item, rebuys: item.rebuys + 1 } : item
+        )
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRemoveRebuy = async (p: any) => {
+    try {
+      await participantsAPI.addRebuy(p.id, -1);
+
+      setList((prev) =>
+        prev.map((item) =>
+          item.id === p.id
+            ? { ...item, rebuys: Math.max(0, item.rebuys - 1) }
+            : item
+        )
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  };
+  const handleArrivedToggle = async (user: any) => {
+    try {
+      const newValue = !user.arrived;
+
+      await participantsAPI.setArrived(user.id, newValue);
+
+      setList((prev) =>
+        prev.map((p) => (p.id === user.id ? { ...p, arrived: newValue } : p))
       );
 
-      showSuccess("Ребай добавлен");
+      showSuccess(newValue ? "Игрок пришёл" : "Игрок ушёл");
     } catch (e) {
       console.error(e);
     }
@@ -160,20 +188,33 @@ export default function ParticipantsPage() {
                       <Stack direction="row" spacing={1}>
                         {/* ENTRY */}
                         <Button
-                          variant="outlined"
+                          variant={p.arrived ? "contained" : "outlined"}
+                          color={p.arrived ? "success" : "primary"}
                           size="small"
-                          onClick={() => handleEntry(p)}
+                          onClick={() => handleArrivedToggle(p)}
                         >
-                          Вход
+                          {p.arrived ? "Пришёл ✓" : "Пришёл"}
                         </Button>
 
                         {/* REBUY */}
                         <Button
                           variant="outlined"
                           size="small"
-                          onClick={() => handleRebuy(p)}
+                          onClick={() => handleRemoveRebuy(p)}
                         >
-                          Ребай
+                          −
+                        </Button>
+
+                        <Typography sx={{ minWidth: 20, textAlign: "center" }}>
+                          {p.rebuys}
+                        </Typography>
+
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => handleAddRebuy(p)}
+                        >
+                          +1
                         </Button>
 
                         {/* POINTS (только админ) */}
