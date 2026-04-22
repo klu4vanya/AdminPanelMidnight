@@ -21,6 +21,7 @@ export default function ParticipantsPage() {
   const [gameId, setGameId] = useState("");
   const [list, setList] = useState<any[]>([]);
   const [listForTg, setListForTg] = useState(false);
+  const [showArrivedOnly, setShowArrivedOnly] = useState(false);
 
   const [search, setSearch] = useState("");
 
@@ -46,11 +47,16 @@ export default function ParticipantsPage() {
     participantsAPI.getByGame(Number(gameId)).then((res) => setList(res.data));
   };
 
-  const filteredList = list.filter((p) => {
-    const name = p.user_info.nickname || p.user_info.first_name || "";
+  const filteredList = list
+    .filter((p) => {
+      const name = p.user_info.nickname || p.user_info.first_name || "";
 
-    return name.toLowerCase().includes(search.toLowerCase());
-  });
+      return name.toLowerCase().includes(search.toLowerCase());
+    })
+    .filter((p) => {
+      if (!showArrivedOnly) return true;
+      return p.arrived === true;
+    });
 
   // ➕ открыть модалку
   const openAddPoints = (user: any) => {
@@ -151,6 +157,13 @@ export default function ParticipantsPage() {
             {/* toggle */}
             <Button onClick={() => setListForTg(!listForTg)}>
               {listForTg ? "Показать всю информацию" : "Показать только ники"}
+            </Button>
+            <Button
+              variant={showArrivedOnly ? "contained" : "outlined"}
+              color="success"
+              onClick={() => setShowArrivedOnly((prev) => !prev)}
+            >
+              {showArrivedOnly ? "Все участники" : "Только пришедшие"}
             </Button>
           </Stack>
         </Paper>
