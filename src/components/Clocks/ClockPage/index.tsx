@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import InfoComponent from "../InfoClockComponent";
@@ -62,6 +62,7 @@ export default function MainPage() {
   const { id } = useParams<{ id: string }>();
   const [currentGame, setCurrentGame] = useState<Game>();
   const [timer, setTimer] = useState<TimerState>();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [levels, setLevels] = useState<any[]>([]);
 
   useEffect(() => {
