@@ -50,9 +50,9 @@ export const participantsAPI = {
       user_id: userId,
       value: 1,
     }),
-  addRebuy: (participantId: string, value: number) =>
+  addRebuy: (participantId: string, rebuys: number) =>
     api.patch(`/participants/${participantId}`, {
-      value,
+      rebuys,
     }),
   setArrived: (id: string, arrived: boolean) =>
     api.patch(`/participants/${id}`, { arrived }),
