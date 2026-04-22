@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import InfoComponent from "../InfoClockComponent";
@@ -35,7 +35,7 @@ import {
   TimerWrapper,
 } from "./styles";
 import { clocksAPI } from "../../../api/ClockApi";
-import { Game } from "../../../types";
+import { Game, TimerState } from "../../../types";
 
 const payouts = [
   { place: "1 место", percentage: 40 },
@@ -47,7 +47,6 @@ const payouts = [
 ];
 
 const prizePool = 5000;
-
 
 const formatNumber = (num: number) => {
   return num.toLocaleString("ru-RU");
@@ -61,19 +60,19 @@ const formatTime = (sec: number) => {
 
 export default function MainPage() {
   const { id } = useParams<{ id: string }>();
-  const [currentGame, setCurrentGame] =  useState<Game>()
-  const [timer, setTimer] = useState<any>(null);
+  const [currentGame, setCurrentGame] = useState<Game>();
+  const [timer, setTimer] = useState<TimerState>();
+  const [levels, setLevels] = useState<any[]>([]);
 
   useEffect(() => {
     if (!id) return;
 
-    const loadGame = async () => {
-      try {
-        const response = await clocksAPI.getTournament(id);
-        setCurrentGame(response.data);
-      } catch (err: any) {
-        console.error("Error fetching game:", err);
-      }
+    const load = async () => {
+      const gameRes = await clocksAPI.getTournament(id);
+      const levelsRes = await clocksAPI.getLevels(id);
+
+      setCurrentGame(gameRes.data);
+      setLevels(levelsRes.data);
     };
 
     const ws = new WebSocket(
@@ -88,13 +87,14 @@ export default function MainPage() {
     ws.onerror = (err) => {
       console.error("WS error", err);
     };
-    loadGame()
+    load();
     return () => ws.close();
-    
   }, [id]);
-  const amountPlayers = 1
-  const reentries = 1
-  
+  const next = timer?.next_level;
+
+  const amountPlayers = 1;
+  const reentries = 1;
+
   const test_data = [
     {
       title: "Игроки",
@@ -106,7 +106,7 @@ export default function MainPage() {
     },
     {
       title: "Средний стек",
-      data: `${amountPlayers * 30000 / reentries}`,
+      data: `${(amountPlayers * 30000) / reentries}`,
     },
     {
       title: "Фишек в игре",
@@ -154,9 +154,7 @@ export default function MainPage() {
           <TimerContainer>
             <TimerWrapper>
               <TimerText>
-                {timer
-                  ? formatTime(timer.remaining_seconds)
-                  : "00:00"}
+                {timer ? formatTime(timer.remaining_seconds) : "00:00"}
               </TimerText>
             </TimerWrapper>
             <EdgeTopLeft style={{ width: "30px", height: "30px" }} />
@@ -170,9 +168,7 @@ export default function MainPage() {
             <DecorativeLine />
             <CurrentBlindText>Текущие блайнды</CurrentBlindText>
             <CurrentBlindNumber>
-              {timer
-                ? `${timer.small_blind}/${timer.big_blind}`
-                : "0/0"}
+              {timer ? `${timer.small_blind}/${timer.big_blind}` : "00/00"}
             </CurrentBlindNumber>
             <DecorativeLine />
           </BlindsContainer>
@@ -188,8 +184,13 @@ export default function MainPage() {
             >
               Следующий уровень
             </CurrentBlindText>
+            {/* <Content>{timer?.next_level?.name ?? "-"}</Content> */}
             <NextBlindNumber>
-            {timer?.next_level ? timer.next_level.small_blind / timer.next_level.big_blind : "—"}
+              {next
+                ? next.type === "level"
+                  ? `${next.small_blind}/${next.big_blind}`
+                  : `Перерыв (${next.duration_minutes} мин)`
+                : "—"}
             </NextBlindNumber>
           </NextBlindContainer>
         </CentralPanelContainer>
@@ -209,15 +210,11 @@ export default function MainPage() {
                   <Places>{payout.place}</Places>
 
                   <div style={{ textAlign: "right" }}>
-                    <PercentContainer>
-                      {payout.percentage}%
-                    </PercentContainer>
+                    <PercentContainer>{payout.percentage}%</PercentContainer>
 
                     <Payouts>
                       {formatNumber(
-                        Math.floor(
-                          (prizePool * payout.percentage) / 100
-                        )
+                        Math.floor((prizePool * payout.percentage) / 100)
                       )}
                     </Payouts>
                   </div>

@@ -99,11 +99,33 @@ export interface CreateGame {
 export interface Game {
   id: string,
   name: string,
-  levels: Array<Blinds>
+  levels: Array<Level>
 }
 
-export interface Blinds {
-  small_blind: number,
-  big_blind: number,
-  duration_minutes: number
-}
+export type Level =
+  | {
+      type: "level";
+      name: string;
+      small_blind: number;
+      big_blind: number;
+      duration_minutes: number;
+      order: number;
+    }
+  | {
+      type: "break";
+      name: string;
+      duration_minutes: number;
+      order: number;
+    };
+
+    export interface TimerState {
+      level: number;
+      small_blind: number;
+      big_blind: number;
+      remaining_seconds: number;
+    
+      current_type?: "level" | "break";
+      current_name?: string;
+    
+      next_level?: Level;
+    }

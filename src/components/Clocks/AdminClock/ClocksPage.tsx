@@ -20,6 +20,8 @@ export default function ClocksPage() {
   const [open, setOpen] = useState(false);
   const [levels, setLevels] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
+  const [deleted, setDeleted] = useState<boolean>();
+  const [originalLevels, setOriginalLevels] = useState<any[]>([]);
 
   const getTournaments = async () => {
     try {
@@ -29,10 +31,21 @@ export default function ClocksPage() {
       console.log(e);
     }
   };
+  const deletetournament = async (id: string) => {
+    try {
+      const res = await clocksAPI.deleteTournament(id);
+      if (res.status === 204) {
+        setDeleted(true);
+      }
+    } catch (e) {
+      console.log(e);
+      setDeleted(false);
+    }
+  };
 
   useEffect(() => {
     getTournaments();
-  }, []);
+  }, [deleted]);
 
   const createTournament = async () => {
     if (!name.trim()) return;
@@ -42,23 +55,66 @@ export default function ClocksPage() {
     getTournaments();
   };
 
+  const normalizeLevels = (levels: any[]) => {
+    return levels.map((lvl, index) => {
+      const isBreak = lvl.small_blind === 0 && lvl.big_blind === 0;
+  
+      return {
+        ...lvl,
+        type: isBreak ? "break" : "level",
+        name: lvl.name ?? (isBreak ? `Break ${index + 1}` : `Level ${index + 1}`),
+      };
+    });
+  };
+  
   const openEdit = async (g: any) => {
     setSelected(g);
+  
     const res = await clocksAPI.getLevels(g.id);
-    setLevels(res.data);
+  
+    const normalized = normalizeLevels(res.data);
+  
+    setLevels(JSON.parse(JSON.stringify(normalized)));       // глубокая копия
+    setOriginalLevels(JSON.parse(JSON.stringify(normalized)));
+  
     setOpen(true);
+  
+    console.log("LEVELS FROM API:", res.data);
+    console.log("NORMALIZED:", normalized);
   };
 
   const updateLevel = (i: number, field: string, value: any) => {
     const copy = [...levels];
-    copy[i][field] = Number(value);
+  
+    if (field === "name") {
+      copy[i][field] = value;
+    } else {
+      copy[i][field] = value === "" ? 0 : Number(value);
+    }
+  
     setLevels(copy);
   };
 
   const addLevel = () => {
     setLevels([
       ...levels,
-      { small_blind: 0, big_blind: 0, duration_minutes: 10 },
+      {
+        type: "level",
+        name: `Level ${levels.length + 1}`,
+        small_blind: 0,
+        big_blind: 0,
+        duration_minutes: 10,
+      },
+    ]);
+  };
+  const addBreak = () => {
+    setLevels([
+      ...levels,
+      {
+        type: "break",
+        name: `Break ${levels.length + 1}`,
+        duration_minutes: 10,
+      },
     ]);
   };
 
@@ -67,14 +123,43 @@ export default function ClocksPage() {
   };
 
   const saveLevels = async () => {
-    for (const lvl of levels) {
-      await clocksAPI.createLevel(selected.id, lvl);
+    try {
+      for (const lvl of originalLevels) {
+        if (lvl.id) {
+          await clocksAPI.deleteLevel(selected.id, lvl.id);
+        }
+      }
+
+      for (let i = 0; i < levels.length; i++) {
+        const lvl = levels[i];
+      
+        if (lvl.type === "level") {
+          await clocksAPI.createLevel(selected.id, {
+            type: "level",
+            name: lvl.name,
+            small_blind: Number(lvl.small_blind),
+            big_blind: Number(lvl.big_blind),
+            duration_minutes: Number(lvl.duration_minutes),
+          });
+        } else {
+          await clocksAPI.createLevel(selected.id, {
+            type: "break",
+            name: lvl.name,
+            duration_minutes: Number(lvl.duration_minutes),
+          });
+        }
+      }
+
+      setOpen(false);
+    } catch (e) {
+      console.log(e);
     }
-    setOpen(false);
   };
+  
   const openClock = (id: string) => {
     window.open(`/clock/${id}`, "_blank");
   };
+
 
   return (
     <Box sx={{ p: 4, background: "#000", minHeight: "100vh", color: "#fff" }}>
@@ -115,7 +200,9 @@ export default function ClocksPage() {
               </Button>
               <Button onClick={() => openEdit(g)}>Редактировать</Button>
               <Button onClick={() => openClock(g.id)}>Открыть часы</Button>
-              <Button onClick={() => clocksAPI.deleteTournament(g.id)}>Удалить турнир</Button>
+              <Button onClick={() => deletetournament(g.id)}>
+                Удалить турнир
+              </Button>
             </Stack>
           </Box>
         ))}
@@ -128,15 +215,34 @@ export default function ClocksPage() {
           {levels.map((lvl, i) => (
             <Stack direction="row" spacing={2} key={i} mt={2}>
               <TextField
-                label="SB"
-                value={lvl.small_blind}
-                onChange={(e) => updateLevel(i, "small_blind", e.target.value)}
+                label="Название"
+                value={lvl.name}
+                onChange={(e) => {
+                  const copy = [...levels];
+                  copy[i].name = e.target.value;
+                  setLevels(copy);
+                }}
               />
-              <TextField
-                label="BB"
-                value={lvl.big_blind}
-                onChange={(e) => updateLevel(i, "big_blind", e.target.value)}
-              />
+
+              {lvl.type === "level" && (
+                <>
+                  <TextField
+                    label="SB"
+                    value={lvl.small_blind}
+                    onChange={(e) =>
+                      updateLevel(i, "small_blind", e.target.value)
+                    }
+                  />
+                  <TextField
+                    label="BB"
+                    value={lvl.big_blind}
+                    onChange={(e) =>
+                      updateLevel(i, "big_blind", e.target.value)
+                    }
+                  />
+                </>
+              )}
+
               <TextField
                 label="Мин"
                 value={lvl.duration_minutes}
@@ -151,6 +257,9 @@ export default function ClocksPage() {
 
           <Button onClick={addLevel} sx={{ mt: 2 }}>
             + уровень
+          </Button>
+          <Button onClick={addBreak} sx={{ mt: 2 }}>
+            + перерыв
           </Button>
         </DialogContent>
 

@@ -22,10 +22,11 @@ export const clocksAPI = {
   getTournament: (id: string) => api.get(`/tournaments/${id}`),
   createTournament: (name: string) =>
     api.post(`/tournaments/`, { name }),
-  deleteTournament: (id: string) => api.delete(`/tournaments/${id}`),
   // levels
   getLevels: (id: string) =>
     api.get(`/tournaments/${id}/levels`),
+  deleteLevel: (tournamentId: string, levelId: string) =>
+    api.delete(`/tournaments/${tournamentId}/levels/${levelId}`),
 
   createLevel: (id: string, data: any) =>
     api.post(`/tournaments/${id}/levels`, data),
@@ -39,6 +40,7 @@ export const clocksAPI = {
 
   resume: (id: string) =>
     api.post(`/tournaments/${id}/resume`),
+  deleteTournament: (id: string) => api.delete(`/tournaments/${id}`),
 
   nextLevel: (id: string) =>
     api.post(`/tournaments/${id}/next`),
