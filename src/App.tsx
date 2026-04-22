@@ -26,9 +26,6 @@ const theme = createTheme({
   shape: { borderRadius: 12 },
 });
 
-let runtimeToken: string | null =
-  localStorage.getItem("token");
-
   export const setRuntimeToken = (t: string | null) => {
     if (t) {
       localStorage.setItem("auth_token", t);
