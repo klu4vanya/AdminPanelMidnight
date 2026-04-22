@@ -72,24 +72,6 @@ export default function ParticipantsPage() {
     }
   };
 
-  const handleEntry = async (user: any) => {
-    if (!gameId) return;
-
-    try {
-      await participantsAPI.addEntry(Number(gameId), user.user);
-
-      setList((prev) =>
-        prev.map((p) =>
-          p.id === user.id ? { ...p, entries: p.entries + 1 } : p
-        )
-      );
-
-      showSuccess("Вход добавлен");
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const handleAddRebuy = async (p: any) => {
     try {
       await participantsAPI.addRebuy(p.id, 1);
