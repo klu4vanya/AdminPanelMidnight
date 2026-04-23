@@ -61,6 +61,7 @@ export default function MainPage() {
 
   const [currentGame, setCurrentGame] = useState<Game>();
   const [timer, setTimer] = useState<TimerState>();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [levels, setLevels] = useState<any[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
 
