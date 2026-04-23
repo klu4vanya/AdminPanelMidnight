@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import InfoComponent from "../InfoClockComponent";
-import logo from "../../../assets/logo.jpg";
 import {
   BlindsContainer,
   CentralPanelContainer,
@@ -15,27 +14,38 @@ import {
   EdgeBottomRight,
   EdgeTopLeft,
   EdgeTopRight,
-  LogoContainer,
-  LogoWrapper,
   MainContainer,
   MainContentContainer,
   MainTitle,
   NextBlindContainer,
   NextBlindNumber,
-  PayoutContainer,
-  Payouts,
-  PayoutWrapper,
-  PercentContainer,
-  Places,
   PrizePoolContainer,
   RightPanelContainer,
   RightPanelTitle,
   TimerContainer,
   TimerText,
   TimerWrapper,
+  PayoutContainer,
+  PayoutWrapper,
+  PercentContainer,
+  Payouts,
+  Places,
 } from "./styles";
+
 import { clocksAPI } from "../../../api/ClockApi";
+import { participantsAPI, gamesAdminAPI } from "../../../api/adminApi";
+
 import { Game, TimerState } from "../../../types";
+
+const prizePool = 5000;
+
+const formatNumber = (num: number) => num.toLocaleString("ru-RU");
+
+const formatTime = (sec: number) => {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+};
 
 const payouts = [
   { place: "1 место", percentage: 40 },
@@ -46,34 +56,63 @@ const payouts = [
   { place: "6 место", percentage: 4 },
 ];
 
-const prizePool = 5000;
-
-const formatNumber = (num: number) => {
-  return num.toLocaleString("ru-RU");
-};
-
-const formatTime = (sec: number) => {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-};
-
 export default function MainPage() {
   const { id } = useParams<{ id: string }>();
+
   const [currentGame, setCurrentGame] = useState<Game>();
   const [timer, setTimer] = useState<TimerState>();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [levels, setLevels] = useState<any[]>([]);
+  const [participants, setParticipants] = useState<any[]>([]);
+
+  const loadParticipants = async (gameId: number) => {
+    try {
+      const res = await participantsAPI.getByGame(gameId);
+      setParticipants(res.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
 
     const load = async () => {
-      const gameRes = await clocksAPI.getTournament(id);
-      const levelsRes = await clocksAPI.getLevels(id);
+      try {
+        // 1. tournament
+        const gameRes = await clocksAPI.getTournament(id);
+        const tournament = gameRes.data;
 
-      setCurrentGame(gameRes.data);
-      setLevels(levelsRes.data);
+        setCurrentGame(tournament);
+
+        // 2. levels
+        const levelsRes = await clocksAPI.getLevels(id);
+        setLevels(levelsRes.data);
+
+        // 3. link by name
+        const gamesRes = await gamesAdminAPI.getGames();
+
+        const linkedGame = gamesRes.data.find(
+          (g: any) =>
+            g.name?.trim().toLowerCase() ===
+            tournament.name?.trim().toLowerCase()
+        );
+
+        if (!linkedGame) {
+          console.warn("Linked game not found");
+          return;
+        }
+
+        await loadParticipants(linkedGame.game_id);
+
+        // ===== polling every 5 sec =====
+        const interval = setInterval(() => {
+          loadParticipants(linkedGame.game_id);
+        }, 5000);
+
+        return () => clearInterval(interval);
+      } catch (e) {
+        console.error(e);
+      }
     };
 
     const ws = new WebSocket(
@@ -81,25 +120,34 @@ export default function MainPage() {
     );
 
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      setTimer(data);
+      setTimer(JSON.parse(event.data));
     };
 
-    ws.onerror = (err) => {
-      console.error("WS error", err);
-    };
+    ws.onerror = (err) => console.error("WS error", err);
+
     load();
+
     return () => ws.close();
   }, [id]);
-  const next = timer?.next_level;
 
-  const amountPlayers = 1;
-  const reentries = 1;
+  // ====== CALCULATIONS ======
+
+  const arrivedCount = participants.filter((p) => p.arrived).length;
+
+  // ✅ FIXED REBUYS (only from participants)
+  const totalRebuys = participants.reduce((sum, p) => {
+    const r = Number(p.rebuys || 0);
+    return sum + (r > 0 ? r : 0);
+  }, 0);
 
   const test_data = [
     {
       title: "Игроки",
-      data: `${amountPlayers}`,
+      data: `${arrivedCount}`,
+    },
+    {
+      title: "Ребаи",
+      data: `${totalRebuys}`,
     },
     {
       title: "Уровень",
@@ -107,18 +155,20 @@ export default function MainPage() {
     },
     {
       title: "Средний стек",
-      data: `${(amountPlayers * 30000) / reentries}`,
+      data: arrivedCount?  (`${(arrivedCount + totalRebuys )* 30000 / arrivedCount}`) : 0,
     },
     {
       title: "Фишек в игре",
-      data: `${amountPlayers * 30000}`,
+      data: `${arrivedCount * 30000 + totalRebuys * 30000}`,
     },
   ];
+
+  const next = timer?.next_level;
 
   return (
     <MainContainer>
       <MainTitle>
-        <h1 style={{fontSize: '5rem'}}>{currentGame?.name}</h1>
+        <h1 style={{ fontSize: "5rem" }}>{currentGame?.name}</h1>
       </MainTitle>
 
       <MainContentContainer>
@@ -133,34 +183,19 @@ export default function MainPage() {
 
         {/* CENTER */}
         <CentralPanelContainer>
-          {/* <LogoContainer>
-            <LogoWrapper>
-              <img
-                src={logo}
-                alt="Poker Logo"
-                style={{ width: "auto", height: "10rem" }}
-              />
-            </LogoWrapper>
-            <EdgeTopLeft />
-            <EdgeTopRight />
-            <EdgeBottomLeft />
-            <EdgeBottomRight />
-          </LogoContainer> */}
-
-          {/* TIMER */}
           <TimerContainer>
             <TimerWrapper>
               <TimerText>
                 {timer ? formatTime(timer.remaining_seconds) : "00:00"}
               </TimerText>
             </TimerWrapper>
-            <EdgeTopLeft style={{ width: "30px", height: "30px" }} />
-            <EdgeTopRight style={{ width: "30px", height: "30px" }} />
-            <EdgeBottomLeft style={{ width: "30px", height: "30px" }} />
-            <EdgeBottomRight style={{ width: "30px", height: "30px" }} />
+
+            <EdgeTopLeft />
+            <EdgeTopRight />
+            <EdgeBottomLeft />
+            <EdgeBottomRight />
           </TimerContainer>
 
-          {/* CURRENT BLINDS */}
           <BlindsContainer>
             <DecorativeLine />
             <CurrentBlindText>Текущие блайнды</CurrentBlindText>
@@ -170,18 +205,11 @@ export default function MainPage() {
             <DecorativeLine />
           </BlindsContainer>
 
-          {/* NEXT LEVEL */}
           <NextBlindContainer>
-            <CurrentBlindText
-              style={{
-                marginBottom: "0.5rem",
-                opacity: "0.5",
-                fontWeight: "600",
-              }}
-            >
+            <CurrentBlindText style={{ opacity: 0.5 }}>
               Следующий уровень
             </CurrentBlindText>
-            {/* <Content>{timer?.next_level?.name ?? "-"}</Content> */}
+
             <NextBlindNumber>
               {next
                 ? next.type === "level"
@@ -190,20 +218,16 @@ export default function MainPage() {
                 : "—"}
             </NextBlindNumber>
           </NextBlindContainer>
+
           <NextBlindContainer>
-            <CurrentBlindText
-              style={{
-                marginBottom: "0.5rem",
-                opacity: "0.5",
-                fontWeight: "600",
-              }}
-            >
+            <CurrentBlindText style={{ opacity: 0.5 }}>
               До перерыва
             </CurrentBlindText>
-            {/* <Content>{timer?.next_level?.name ?? "-"}</Content> */}
+
             <NextBlindNumber>120 мин</NextBlindNumber>
           </NextBlindContainer>
         </CentralPanelContainer>
+
         {/* RIGHT */}
         <RightPanelContainer>
           <InfoComponent title="Всего очков">
@@ -214,16 +238,16 @@ export default function MainPage() {
             <CurrentBlindText>Распределение очков</CurrentBlindText>
 
             <PayoutContainer>
-              {payouts.map((payout, index) => (
-                <PayoutWrapper key={index}>
-                  <Places>{payout.place}</Places>
+              {payouts.map((p, i) => (
+                <PayoutWrapper key={i}>
+                  <Places>{p.place}</Places>
 
                   <div style={{ textAlign: "right" }}>
-                    <PercentContainer>{payout.percentage}%</PercentContainer>
+                    <PercentContainer>{p.percentage}%</PercentContainer>
 
                     <Payouts>
                       {formatNumber(
-                        Math.floor((prizePool * payout.percentage) / 100)
+                        Math.floor((prizePool * p.percentage) / 100)
                       )}
                     </Payouts>
                   </div>
