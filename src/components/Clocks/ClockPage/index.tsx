@@ -141,7 +141,7 @@ export default function MainPage() {
     }
 
     prevLevelRef.current = timer.level;
-  }, [timer?.level]);
+  }, [timer?.level, timer]);
 
   // ====== CALCULATIONS ======
 
