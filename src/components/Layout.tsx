@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { AppBar, Toolbar, Typography, Box, Button, Stack } from "@mui/material";
+import { AppBar, Toolbar, Box, Button, Stack } from "@mui/material";
 
 const menu = [
   { label: "Пользователи", path: "/users" },
