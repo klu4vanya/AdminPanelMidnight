@@ -1,4 +1,4 @@
-import  { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Grid,
 } from "@mui/material";
 import { clocksAPI } from "../../../api/ClockApi";
 
@@ -58,40 +59,41 @@ export default function ClocksPage() {
   const normalizeLevels = (levels: any[]) => {
     return levels.map((lvl, index) => {
       const isBreak = lvl.small_blind === 0 && lvl.big_blind === 0;
-  
+
       return {
         ...lvl,
         type: isBreak ? "break" : "level",
-        name: lvl.name ?? (isBreak ? `Break ${index + 1}` : `Level ${index + 1}`),
+        name:
+          lvl.name ?? (isBreak ? `Break ${index + 1}` : `Level ${index + 1}`),
       };
     });
   };
-  
+
   const openEdit = async (g: any) => {
     setSelected(g);
-  
+
     const res = await clocksAPI.getLevels(g.id);
-  
+
     const normalized = normalizeLevels(res.data);
-  
-    setLevels(JSON.parse(JSON.stringify(normalized)));       // глубокая копия
+
+    setLevels(JSON.parse(JSON.stringify(normalized))); // глубокая копия
     setOriginalLevels(JSON.parse(JSON.stringify(normalized)));
-  
+
     setOpen(true);
-  
+
     console.log("LEVELS FROM API:", res.data);
     console.log("NORMALIZED:", normalized);
   };
 
   const updateLevel = (i: number, field: string, value: any) => {
     const copy = [...levels];
-  
+
     if (field === "name") {
       copy[i][field] = value;
     } else {
       copy[i][field] = value === "" ? 0 : Number(value);
     }
-  
+
     setLevels(copy);
   };
 
@@ -132,7 +134,7 @@ export default function ClocksPage() {
 
       for (let i = 0; i < levels.length; i++) {
         const lvl = levels[i];
-      
+
         if (lvl.type === "level") {
           await clocksAPI.createLevel(selected.id, {
             type: "level",
@@ -155,14 +157,21 @@ export default function ClocksPage() {
       console.log(e);
     }
   };
-  
+
   const openClock = (id: string) => {
     window.open(`/clock/${id}`, "_blank");
   };
 
-
   return (
-    <Box sx={{ p: 4, background: "#000", minHeight: "100vh", color: "#fff" }}>
+    <Box
+      sx={{
+        p: 4,
+        background: "#000",
+        minHeight: "100vh",
+        color: "#fff",
+        width: "100%",
+      }}
+    >
       <Typography variant="h4" mb={4}>
         TOURNAMENTS
       </Typography>
@@ -173,6 +182,12 @@ export default function ClocksPage() {
             label="Название турнира"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            InputProps={{
+              style: { color: "white" },
+            }}
+            InputLabelProps={{
+              style: { color: "white" },
+            }}
           />
           <Button onClick={createTournament} variant="contained">
             Создать
@@ -191,19 +206,87 @@ export default function ClocksPage() {
             }}
           >
             <Typography>{g.name}</Typography>
+            <Grid container spacing={2} mt={2}>
+              <Grid item xs={4}>
+                <Button
+                  fullWidth
+                  onClick={() => clocksAPI.start(g.id)}
+                  sx={{
+                    justifyContent: "flex-start",
+                    textTransform: "none",
+                  }}
+                >
+                  Старт
+                </Button>
+              </Grid>
 
-            <Stack direction="row" spacing={1} mt={2}>
-              <Button onClick={() => clocksAPI.start(g.id)}>Старт</Button>
-              <Button onClick={() => clocksAPI.pause(g.id)}>Пауза</Button>
-              <Button onClick={() => clocksAPI.resume(g.id)}>
-                Возобновить
-              </Button>
-              <Button onClick={() => openEdit(g)}>Редактировать</Button>
-              <Button onClick={() => openClock(g.id)}>Открыть часы</Button>
-              <Button onClick={() => deletetournament(g.id)}>
-                Удалить турнир
-              </Button>
-            </Stack>
+              <Grid item xs={4}>
+                <Button
+                  fullWidth
+                  onClick={() => clocksAPI.pause(g.id)}
+                  sx={{
+                    justifyContent: "flex-start",
+                    textTransform: "none",
+                  }}
+                >
+                  Пауза
+                </Button>
+              </Grid>
+
+              <Grid item xs={4}>
+                <Button
+                  fullWidth
+                  onClick={() => clocksAPI.resume(g.id)}
+                  sx={{
+                    justifyContent: "flex-start",
+                    textTransform: "none",
+                  }}
+                >
+                  Возобновить
+                </Button>
+              </Grid>
+
+              <Grid item xs={4}>
+                <Button
+                  fullWidth
+                  onClick={() => openEdit(g)}
+                  sx={{
+                    justifyContent: "flex-start",
+                    textTransform: "none",
+                  }}
+                >
+                  Редактировать
+                </Button>
+              </Grid>
+
+              <Grid item xs={4}>
+                <Button
+                  fullWidth
+                  onClick={() => openClock(g.id)}
+                  color="success"
+                  sx={{
+                    justifyContent: "flex-start",
+                    textTransform: "none",
+                  }}
+                >
+                  Часы
+                </Button>
+              </Grid>
+
+              <Grid item xs={4}>
+                <Button
+                  fullWidth
+                  onClick={() => deletetournament(g.id)}
+                  color="warning"
+                  sx={{
+                    justifyContent: "flex-start",
+                    textTransform: "none",
+                  }}
+                >
+                  Удалить
+                </Button>
+              </Grid>
+            </Grid>
           </Box>
         ))}
       </Stack>

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+import { Howl } from "howler";
 
 import InfoComponent from "../InfoClockComponent";
 import {
@@ -61,9 +62,19 @@ export default function MainPage() {
 
   const [currentGame, setCurrentGame] = useState<Game>();
   const [timer, setTimer] = useState<TimerState>();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [levels, setLevels] = useState<any[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
+
+  // 🔊 звук
+  const levelSound = useRef(
+    new Howl({
+      src: ["/sounds/level-up.mp3"],
+      volume: 1,
+    })
+  );
+
+  // 👇 запоминаем прошлый уровень
+  const prevLevelRef = useRef<number | null>(null);
 
   const loadParticipants = async (gameId: number) => {
     try {
@@ -79,17 +90,14 @@ export default function MainPage() {
 
     const load = async () => {
       try {
-        // 1. tournament
         const gameRes = await clocksAPI.getTournament(id);
         const tournament = gameRes.data;
 
         setCurrentGame(tournament);
 
-        // 2. levels
         const levelsRes = await clocksAPI.getLevels(id);
         setLevels(levelsRes.data);
 
-        // 3. link by name
         const gamesRes = await gamesAdminAPI.getGames();
 
         const linkedGame = gamesRes.data.find(
@@ -105,7 +113,6 @@ export default function MainPage() {
 
         await loadParticipants(linkedGame.game_id);
 
-        // ===== polling every 5 sec =====
         const interval = setInterval(() => {
           loadParticipants(linkedGame.game_id);
         }, 5000);
@@ -124,40 +131,41 @@ export default function MainPage() {
       setTimer(JSON.parse(event.data));
     };
 
-    ws.onerror = (err) => console.error("WS error", err);
-
     load();
 
     return () => ws.close();
   }, [id]);
 
+  // 🔥 ЗВУК ПРИ СМЕНЕ УРОВНЯ
+  useEffect(() => {
+    if (!timer) return;
+
+    if (prevLevelRef.current !== null && timer.level > prevLevelRef.current) {
+      levelSound.current.play();
+    }
+
+    prevLevelRef.current = timer.level;
+  }, [timer?.level]);
+
   // ====== CALCULATIONS ======
 
   const arrivedCount = participants.filter((p) => p.arrived).length;
+  const outsCount = participants.filter((p) => p.is_out).length;
+  const activePlayers = Math.max(arrivedCount - outsCount, 0);
 
-  // ✅ FIXED REBUYS (only from participants)
   const totalRebuys = participants.reduce((sum, p) => {
     const r = Number(p.rebuys || 0);
     return sum + (r > 0 ? r : 0);
   }, 0);
 
   const test_data = [
-    {
-      title: "Игроки",
-      data: `${arrivedCount}`,
-    },
-    {
-      title: "Реентри",
-      data: `${totalRebuys}`,
-    },
-    {
-      title: "Уровень",
-      data: timer?.level ?? "-",
-    },
+    { title: "Игроки", data: `${activePlayers}` },
+    { title: "Реентри", data: `${totalRebuys}` },
+    { title: "Уровень", data: timer?.level ?? "-" },
     {
       title: "Средний стек",
-      data: arrivedCount
-        ? `${((arrivedCount + totalRebuys) * 30000) / arrivedCount}`
+      data: activePlayers
+        ? `${((activePlayers + totalRebuys) * 30000) / activePlayers}`
         : 0,
     },
     {
@@ -181,17 +189,18 @@ export default function MainPage() {
 
     return sum;
   })();
+
   const currentLevelIndex = levels.findIndex(
     (lvl) =>
       lvl.small_blind === timer?.small_blind &&
       lvl.big_blind === timer?.big_blind
   );
+
   const elapsedMinutes = (() => {
     if (!timer || currentLevelIndex === -1) return 0;
 
     let sum = 0;
 
-    // прошлые уровни
     for (let i = 0; i < currentLevelIndex; i++) {
       const lvl = levels[i];
 
@@ -200,7 +209,6 @@ export default function MainPage() {
       sum += Number(lvl.duration_minutes) || 0;
     }
 
-    // текущий уровень (частично)
     const currentLevel = levels[currentLevelIndex];
 
     if (currentLevel) {
@@ -212,6 +220,7 @@ export default function MainPage() {
 
     return sum;
   })();
+
   const minutesToBreakNow = Math.max(
     Math.floor(totalTimeToBreak - elapsedMinutes),
     0
@@ -224,7 +233,6 @@ export default function MainPage() {
       </MainTitle>
 
       <MainContentContainer>
-        {/* LEFT */}
         <ContentContainer>
           {test_data.map((item, index) => (
             <InfoComponent key={index} title={item.title}>
@@ -233,7 +241,6 @@ export default function MainPage() {
           ))}
         </ContentContainer>
 
-        {/* CENTER */}
         <CentralPanelContainer>
           <TimerContainer>
             <TimerWrapper>
@@ -241,11 +248,6 @@ export default function MainPage() {
                 {timer ? formatTime(timer.remaining_seconds) : "00:00"}
               </TimerText>
             </TimerWrapper>
-
-            <EdgeTopLeft />
-            <EdgeTopRight />
-            <EdgeBottomLeft />
-            <EdgeBottomRight />
           </TimerContainer>
 
           <BlindsContainer>
@@ -276,12 +278,10 @@ export default function MainPage() {
               До перерыва
             </CurrentBlindText>
 
-            {/* <NextBlindNumber>{timer?.remaining_seconds?  Math.floor( timeToBreak - (timer?. / 60)) : timeToBreak} мин</NextBlindNumber> */}
             <NextBlindNumber>{minutesToBreakNow} мин</NextBlindNumber>
           </NextBlindContainer>
         </CentralPanelContainer>
 
-        {/* RIGHT */}
         <RightPanelContainer>
           <InfoComponent title="Всего очков">
             <RightPanelTitle>500 очков</RightPanelTitle>

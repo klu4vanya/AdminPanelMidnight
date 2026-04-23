@@ -17,11 +17,8 @@ export default function Layout() {
       {/* Top bar */}
       <AppBar position="fixed">
         <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
-          {/* Logo / Title */}
-          <Typography variant="h6">Admin Panel</Typography>
-
           {/* Menu */}
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" spacing={2}  width='100%'>
             {menu.map((item) => (
               <Button
                 key={item.path}

@@ -56,6 +56,8 @@ export const participantsAPI = {
     }),
   setArrived: (id: string, arrived: boolean) =>
     api.patch(`/participants/${id}`, { arrived }),
+  setOut: (id: string, is_out: boolean) =>
+    api.patch(`/participants/${id}`, { is_out }),
 };
 
 export const historyAPI = {

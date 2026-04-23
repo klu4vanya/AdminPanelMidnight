@@ -122,6 +122,21 @@ export default function ParticipantsPage() {
       console.error(e);
     }
   };
+  const handleOutToggle = async (user: any) => {
+    try {
+      const newValue = !user.is_out;
+
+      await participantsAPI.setOut(user.id, newValue);
+
+      setList((prev) =>
+        prev.map((p) => (p.id === user.id ? { ...p, is_out: newValue } : p))
+      );
+
+      showSuccess(newValue ? "Игрок выбыл" : "Игрок вернулся");
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   return (
     <>
@@ -189,6 +204,14 @@ export default function ParticipantsPage() {
                           onClick={() => handleArrivedToggle(p)}
                         >
                           {p.arrived ? "Пришёл ✓" : "Пришёл"}
+                        </Button>
+                        <Button
+                          variant={p.is_out ? "contained" : "outlined"}
+                          color="error"
+                          size="small"
+                          onClick={() => handleOutToggle(p)}
+                        >
+                          {p.is_out ? "OUT ✓" : "OUT"}
                         </Button>
 
                         {/* REBUY */}
