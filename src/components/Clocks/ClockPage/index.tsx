@@ -155,7 +155,7 @@ export default function MainPage() {
   }, 0);
 
   const test_data = [
-    { title: "Игроки", data: `${activePlayers}` },
+    { title: "Игроки", data: `${activePlayers} / ${arrivedCount}` },
     { title: "Реентри", data: `${totalRebuys}` },
     { title: "Уровень", data: timer?.level ?? "-" },
     {
