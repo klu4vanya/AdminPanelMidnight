@@ -161,12 +161,12 @@ export default function MainPage() {
     {
       title: "Средний стек",
       data: activePlayers
-        ? `${((activePlayers + totalRebuys) * 30000) / activePlayers}`
+        ? `${((activePlayers + totalRebuys) * 40000) / activePlayers}`
         : 0,
     },
     {
       title: "Фишек в игре",
-      data: `${arrivedCount * 30000 + totalRebuys * 30000}`,
+      data: `${arrivedCount * 40000 + totalRebuys * 40000}`,
     },
   ];
 
