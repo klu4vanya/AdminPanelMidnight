@@ -147,7 +147,7 @@ export default function MainPage() {
       data: `${arrivedCount}`,
     },
     {
-      title: "Ребаи",
+      title: "Реентри",
       data: `${totalRebuys}`,
     },
     {
@@ -156,7 +156,9 @@ export default function MainPage() {
     },
     {
       title: "Средний стек",
-      data: arrivedCount?  (`${(arrivedCount + totalRebuys )* 30000 / arrivedCount}`) : 0,
+      data: arrivedCount
+        ? `${((arrivedCount + totalRebuys) * 30000) / arrivedCount}`
+        : 0,
     },
     {
       title: "Фишек в игре",
@@ -165,6 +167,55 @@ export default function MainPage() {
   ];
 
   const next = timer?.next_level;
+
+  const totalTimeToBreak = (() => {
+    if (!levels?.length) return 0;
+
+    let sum = 0;
+
+    for (const lvl of levels) {
+      if (lvl.small_blind === 0 && lvl.big_blind === 0) break;
+
+      sum += Number(lvl.duration_minutes) || 0;
+    }
+
+    return sum;
+  })();
+  const currentLevelIndex = levels.findIndex(
+    (lvl) =>
+      lvl.small_blind === timer?.small_blind &&
+      lvl.big_blind === timer?.big_blind
+  );
+  const elapsedMinutes = (() => {
+    if (!timer || currentLevelIndex === -1) return 0;
+
+    let sum = 0;
+
+    // прошлые уровни
+    for (let i = 0; i < currentLevelIndex; i++) {
+      const lvl = levels[i];
+
+      if (lvl.small_blind === 0 && lvl.big_blind === 0) break;
+
+      sum += Number(lvl.duration_minutes) || 0;
+    }
+
+    // текущий уровень (частично)
+    const currentLevel = levels[currentLevelIndex];
+
+    if (currentLevel) {
+      const total = Number(currentLevel.duration_minutes) || 0;
+      const remaining = (timer.remaining_seconds || 0) / 60;
+
+      sum += total - remaining;
+    }
+
+    return sum;
+  })();
+  const minutesToBreakNow = Math.max(
+    Math.floor(totalTimeToBreak - elapsedMinutes),
+    0
+  );
 
   return (
     <MainContainer>
@@ -225,7 +276,8 @@ export default function MainPage() {
               До перерыва
             </CurrentBlindText>
 
-            <NextBlindNumber>120 мин</NextBlindNumber>
+            {/* <NextBlindNumber>{timer?.remaining_seconds?  Math.floor( timeToBreak - (timer?. / 60)) : timeToBreak} мин</NextBlindNumber> */}
+            <NextBlindNumber>{minutesToBreakNow} мин</NextBlindNumber>
           </NextBlindContainer>
         </CentralPanelContainer>
 
