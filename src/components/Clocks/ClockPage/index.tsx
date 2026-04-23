@@ -161,7 +161,7 @@ export default function MainPage() {
     {
       title: "Средний стек",
       data: activePlayers
-        ? `${((activePlayers + totalRebuys) * 40000) / activePlayers}`
+        ? `${Math.floor(((activePlayers + totalRebuys) * 40000) / activePlayers)}`
         : 0,
     },
     {
