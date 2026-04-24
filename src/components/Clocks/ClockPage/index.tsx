@@ -149,10 +149,10 @@ export default function MainPage() {
   const outsCount = participants.filter((p) => p.is_out).length;
   const activePlayers = Math.max(arrivedCount - outsCount, 0);
 
-  const totalRebuys = participants.reduce((sum, p) => {
-    const r = Number(p.rebuys || 0);
-    return sum + (r > 0 ? r : 0);
-  }, 0);
+  const totalRebuys = participants.reduce(
+    (sum, p) => sum + Number(p.rebuys ?? 0),
+    0
+  );
 
   const test_data = [
     { title: "Игроки", data: `${activePlayers} / ${arrivedCount}` },
