@@ -49,7 +49,7 @@ export default function ParticipantsPage() {
 
   const filteredList = list
     .filter((p) => {
-      const name = p.user_info.nickname || p.user_info.first_name || "";
+      const name = p.user_info.nickname || p.user_info.first_name || p.user_info_username || "";
 
       return name.toLowerCase().includes(search.toLowerCase());
     })
