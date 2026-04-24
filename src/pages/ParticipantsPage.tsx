@@ -187,7 +187,7 @@ export default function ParticipantsPage() {
         <Paper sx={{ borderRadius: 3 }}>
           <List>
             {filteredList.map((p, index) => {
-              const name = p.user_info.nickname || p.user_info.first_name || "";
+              const name = p.user_info.nickname || p.user_info.first_name || p.user_info_username || "";
 
               return (
                 <ListItem
