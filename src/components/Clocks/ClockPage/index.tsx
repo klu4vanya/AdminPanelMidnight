@@ -150,7 +150,7 @@ export default function MainPage() {
   const activePlayers = Math.max(arrivedCount - outsCount, 0);
 
   const totalRebuys = participants.reduce((sum, p) => {
-    if (!p.arrived || p.is_out) return sum;
+    if (!p.arrived) return sum;
     return sum + Number(p.rebuys || 0);
   }, 0);
 
