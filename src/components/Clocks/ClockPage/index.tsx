@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Howl } from "howler";
+import { Howl, Howler } from "howler";
 
 import InfoComponent from "../InfoClockComponent";
 import {
@@ -34,7 +34,7 @@ import { participantsAPI, gamesAdminAPI } from "../../../api/adminApi";
 
 import { Game, TimerState } from "../../../types";
 
-const prizePool = 5000;
+const prizePool = 4000;
 
 const formatNumber = (num: number) => num.toLocaleString("ru-RU");
 
@@ -45,12 +45,12 @@ const formatTime = (sec: number) => {
 };
 
 const payouts = [
-  { place: "1 место", percentage: 40 },
-  { place: "2 место", percentage: 25 },
-  { place: "3 место", percentage: 15 },
+  { place: "1 место", percentage: 25 },
+  { place: "2 место", percentage: 17 },
+  { place: "3 место", percentage: 13 },
   { place: "4 место", percentage: 10 },
-  { place: "5 место", percentage: 6 },
-  { place: "6 место", percentage: 4 },
+  { place: "5 место", percentage: 9 },
+  { place: "6 место", percentage: 8 },
 ];
 
 export default function MainPage() {
@@ -60,12 +60,20 @@ export default function MainPage() {
   const [timer, setTimer] = useState<TimerState>();
   const [levels, setLevels] = useState<any[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
+  const [soundUnlocked, setSoundUnlocked] = useState(false);
 
   // 🔊 звук
   const levelSound = useRef(
     new Howl({
       src: ["/sounds/level-up.mp3"],
       volume: 1,
+      preload: true,
+      onplayerror: (_id, err) => {
+        console.warn("Level sound play error:", err);
+      },
+      onloaderror: (_id, err) => {
+        console.warn("Level sound load error:", err);
+      },
     })
   );
 
@@ -132,16 +140,58 @@ export default function MainPage() {
     return () => ws.close();
   }, [id]);
 
+  // Разблокировка аудио после первого взаимодействия пользователя
+  useEffect(() => {
+    const unlock = async () => {
+      try {
+        if (Howler.ctx?.state === "suspended") {
+          await Howler.ctx.resume();
+        }
+      } catch (e) {
+        console.warn("Audio context resume failed:", e);
+      }
+
+      setSoundUnlocked(true);
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      window.removeEventListener("touchstart", unlock);
+    };
+
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    window.addEventListener("touchstart", unlock, { once: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      window.removeEventListener("touchstart", unlock);
+    };
+  }, []);
+
   // 🔥 ЗВУК ПРИ СМЕНЕ УРОВНЯ
   useEffect(() => {
     if (!timer) return;
 
     if (prevLevelRef.current !== null && timer.level > prevLevelRef.current) {
-      levelSound.current.play();
+      const tryPlay = () => {
+        const soundId = levelSound.current.play();
+
+        if (typeof soundId !== "number") return;
+
+        levelSound.current.once("playerror", () => {
+          levelSound.current.once("unlock", () => {
+            levelSound.current.play();
+          });
+        }, soundId);
+      };
+
+      if (soundUnlocked) {
+        tryPlay();
+      }
     }
 
     prevLevelRef.current = timer.level;
-  }, [timer?.level, timer]);
+  }, [timer?.level, timer, soundUnlocked]);
 
   // ====== CALCULATIONS ======
 
@@ -149,10 +199,12 @@ export default function MainPage() {
   const outsCount = participants.filter((p) => p.is_out).length;
   const activePlayers = Math.max(arrivedCount - outsCount, 0);
 
-  const totalRebuys = participants.reduce((sum, p) => {
-    if (!p.arrived) return sum;
-    return sum + Number(p.rebuys || 0);
-  }, 0);
+  const totalRebuys = participants.reduce(
+    (sum, p) => sum + Number(p.rebuys ?? 0),
+    0
+  );
+  console.log(participants.filter((p) => p.arrived))
+  console.log(totalRebuys)
 
   const test_data = [
     { title: "Игроки", data: `${activePlayers} / ${arrivedCount}` },
@@ -161,30 +213,20 @@ export default function MainPage() {
     {
       title: "Средний стек",
       data: activePlayers
-        ? `${Math.floor(((activePlayers + totalRebuys) * 40000) / activePlayers)}`
+        ? `${Math.floor(((activePlayers + totalRebuys) * 25000) / activePlayers)}`
         : 0,
     },
     {
       title: "Фишек в игре",
-      data: `${arrivedCount * 40000 + totalRebuys * 40000}`,
+      data: `${arrivedCount * 25000 + totalRebuys * 25000}`,
     },
   ];
 
   const next = timer?.next_level;
 
-  const totalTimeToBreak = (() => {
-    if (!levels?.length) return 0;
-
-    let sum = 0;
-
-    for (const lvl of levels) {
-      if (lvl.small_blind === 0 && lvl.big_blind === 0) break;
-
-      sum += Number(lvl.duration_minutes) || 0;
-    }
-
-    return sum;
-  })();
+  const isBreakLevel = (lvl: any) =>
+    lvl?.type === "break" ||
+    (Number(lvl?.small_blind) === 0 && Number(lvl?.big_blind) === 0);
 
   const currentLevelIndex = levels.findIndex(
     (lvl) =>
@@ -192,35 +234,50 @@ export default function MainPage() {
       lvl.big_blind === timer?.big_blind
   );
 
-  const elapsedMinutes = (() => {
-    if (!timer || currentLevelIndex === -1) return 0;
+  const resolvedCurrentLevelIndex = (() => {
+    if (currentLevelIndex !== -1) return currentLevelIndex;
+    if (!timer?.current_type || !timer.current_name) return currentLevelIndex;
 
-    let sum = 0;
+    return levels.findIndex((lvl) => {
+      if (timer.current_type === "break") {
+        return isBreakLevel(lvl) && lvl.name === timer.current_name;
+      }
 
-    for (let i = 0; i < currentLevelIndex; i++) {
+      return (
+        !isBreakLevel(lvl) &&
+        lvl.small_blind === timer.small_blind &&
+        lvl.big_blind === timer.big_blind
+      );
+    });
+  })();
+
+  const minutesToBreakNow = (() => {
+    if (!levels?.length) return 0;
+
+    // Таймер ещё не синхронизирован: считаем до самого первого перерыва.
+    if (!timer || resolvedCurrentLevelIndex === -1) {
+      let sum = 0;
+
+      for (const lvl of levels) {
+        if (isBreakLevel(lvl)) return sum;
+        sum += Number(lvl.duration_minutes) || 0;
+      }
+
+      return 0;
+    }
+
+    let sum = Math.max((timer.remaining_seconds || 0) / 60, 0);
+
+    for (let i = resolvedCurrentLevelIndex + 1; i < levels.length; i++) {
       const lvl = levels[i];
 
-      if (lvl.small_blind === 0 && lvl.big_blind === 0) break;
+      if (isBreakLevel(lvl)) return Math.floor(sum);
 
       sum += Number(lvl.duration_minutes) || 0;
     }
 
-    const currentLevel = levels[currentLevelIndex];
-
-    if (currentLevel) {
-      const total = Number(currentLevel.duration_minutes) || 0;
-      const remaining = (timer.remaining_seconds || 0) / 60;
-
-      sum += total - remaining;
-    }
-
-    return sum;
+    return 0;
   })();
-
-  const minutesToBreakNow = Math.max(
-    Math.floor(totalTimeToBreak - elapsedMinutes),
-    0
-  );
 
   return (
     <MainContainer>
@@ -280,7 +337,7 @@ export default function MainPage() {
 
         <RightPanelContainer>
           <InfoComponent title="Всего очков">
-            <RightPanelTitle>500 очков</RightPanelTitle>
+            <RightPanelTitle>4000 очков</RightPanelTitle>
           </InfoComponent>
 
           <PrizePoolContainer>

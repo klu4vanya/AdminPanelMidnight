@@ -93,7 +93,9 @@ export interface CreateGame {
     description: string,
     name: string,
     buyin: number,
-    location: string
+    location: string,
+    base_points: number,
+    photo?: string | null
 }
 
 export interface Game {

@@ -32,9 +32,18 @@ export const usersAPI = {
 
 export const gamesAdminAPI = {
   getGames: () => api.get("/games"),
-  create: (data: any) => api.post("/games", { data }),
+  create: (data: any) => api.post("/games", data),
   update: (id: number, data: any) => api.patch(`/games/${id}`, data),
   delete: (id: number) => api.delete(`/games/${id}`),
+  complete: (id: number, data: any) => api.post(`/games/${id}/complete`, data),
+  uploadPhoto: async (file: File) => {
+    const form = new FormData();
+    form.append("avatar", file);
+    const res = await api.post("/profile/avatar", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data?.photo_url as string;
+  },
 };
 
 export const participantsAPI = {
