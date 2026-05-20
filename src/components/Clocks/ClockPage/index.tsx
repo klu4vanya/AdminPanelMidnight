@@ -213,12 +213,12 @@ export default function MainPage() {
     {
       title: "Средний стек",
       data: activePlayers
-        ? `${Math.floor(((activePlayers + totalRebuys) * 25000) / activePlayers)}`
+        ? `${Math.floor(((activePlayers + totalRebuys) * 30000) / activePlayers)}`
         : 0,
     },
     {
       title: "Фишек в игре",
-      data: `${arrivedCount * 25000 + totalRebuys * 25000}`,
+      data: `${arrivedCount * 30000 + totalRebuys * 30000}`,
     },
   ];
 

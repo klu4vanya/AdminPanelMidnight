@@ -38,8 +38,8 @@ export const gamesAdminAPI = {
   complete: (id: number, data: any) => api.post(`/games/${id}/complete`, data),
   uploadPhoto: async (file: File) => {
     const form = new FormData();
-    form.append("avatar", file);
-    const res = await api.post("/profile/avatar", form, {
+    form.append("photo", file);
+    const res = await api.post("/games/photo", form, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return res.data?.photo_url as string;
