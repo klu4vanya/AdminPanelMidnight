@@ -61,6 +61,7 @@ const isAuth = () => !!getRuntimeToken() && hasAdminToken();
 const PrivateRoute = ({ children }: any) => {
   return isAuth() ? children : <Navigate to="/login" />;
 };
+
 export default function App() {
   return (
     <ThemeProvider theme={theme}>

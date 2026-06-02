@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Box, Button, TextField, Typography, Paper, Stack } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import { api } from "../api/adminApi";
 import { getRuntimeToken, hasAdminToken, setRuntimeToken } from "../App";
 
 export default function LoginPage() {
-  const [token, setToken] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -14,46 +17,60 @@ export default function LoginPage() {
     }
   }, [navigate]);
 
-  const handleLogin = () => {
-    if (!token.trim()) {
-      alert("Enter token");
+  const handleLogin = async () => {
+    if (!nickname.trim() || !password.trim()) {
+      setError("Введи ник и пароль.");
       return;
     }
-    const normalized = token.trim().replace(/^Bearer\s+/i, "");
-    const payload = (() => {
-      try {
-        const base64 = normalized.split(".")[1];
-        if (!base64) return null;
-        return JSON.parse(window.atob(base64.replace(/-/g, "+").replace(/_/g, "/")));
-      } catch {
-        return null;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const { data } = await api.post("/auth/login", {
+        telegram_username: nickname.trim(),
+        password,
+      });
+
+      const token = data?.token || "";
+      if (!token) {
+        throw new Error("missing_token");
       }
-    })();
 
-    if (!payload?.adm) {
-      setError("Этот токен не админский. Нужен JWT с `adm: true`.");
+      setRuntimeToken(token);
+      if (!hasAdminToken()) {
+        setRuntimeToken(null);
+        setError("Этот аккаунт не имеет админских прав.");
+        return;
+      }
+
+      navigate("/users", { replace: true });
+    } catch (e: any) {
       setRuntimeToken(null);
-      return;
+      const backendError =
+        e?.response?.data?.error ||
+        e?.message ||
+        "Не удалось войти. Проверь ник и пароль.";
+      setError(backendError);
+    } finally {
+      setLoading(false);
     }
-
-    setRuntimeToken(normalized);
-    setError("");
-
-    navigate("/users", { replace: true });
   };
 
-  const useSaved = () => {
-    const saved = getRuntimeToken();
-    if (!saved) return;
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      handleLogin();
+    }
+  };
+
+  useEffect(() => {
+    if (!getRuntimeToken()) {
+      return;
+    }
     if (!hasAdminToken()) {
-      setError("Сохранённый токен не админский. Вставь новый токен с `adm: true`.");
       setRuntimeToken(null);
-      return;
     }
-    setRuntimeToken(saved);
-    setError("");
-    navigate("/users", { replace: true });
-  };
+  }, []);
 
   return (
     <Box
@@ -67,7 +84,11 @@ export default function LoginPage() {
     >
       <Paper sx={{ p: 3, width: "min(92vw, 420px)", borderRadius: 3 }} elevation={6}>
         <Typography variant="h5" gutterBottom>
-          Admin Login
+          Вход в админку
+        </Typography>
+
+        <Typography sx={{ color: "text.secondary", fontSize: 14, mb: 1.5 }}>
+          Войди по админскому нику и паролю.
         </Typography>
 
         {error ? (
@@ -78,19 +99,28 @@ export default function LoginPage() {
 
         <TextField
           fullWidth
-          label="Bearer Token"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
+          label="Админский ник"
+          value={nickname}
+          onChange={(e) => setNickname(e.target.value)}
+          margin="normal"
+          autoComplete="username"
+          onKeyDown={handleKeyDown}
+        />
+
+        <TextField
+          fullWidth
+          label="Пароль"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           margin="normal"
           type="password"
+          autoComplete="current-password"
+          onKeyDown={handleKeyDown}
         />
 
         <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-          <Button fullWidth variant="contained" onClick={handleLogin}>
-            Login
-          </Button>
-          <Button fullWidth variant="outlined" onClick={useSaved}>
-            Saved
+          <Button fullWidth variant="contained" onClick={handleLogin} disabled={loading}>
+            {loading ? "Входим..." : "Войти"}
           </Button>
         </Stack>
       </Paper>
