@@ -11,8 +11,10 @@ import {
   Stack,
   Snackbar,
   Divider,
+  Alert,
+  Autocomplete,
 } from "@mui/material";
-import { gamesAdminAPI, participantsAPI } from "../api/adminApi";
+import { gamesAdminAPI, participantsAPI, usersAPI } from "../api/adminApi";
 import { CreateGame, GameType } from "../types";
 
 const emptyGame: CreateGame = {
@@ -23,6 +25,7 @@ const emptyGame: CreateGame = {
   buyin: 0,
   location: "",
   base_points: 100,
+  start_stack: 33300,
   photo: null,
 };
 
@@ -34,45 +37,46 @@ const normalizeTime = (time: string) => {
 type FinishRow = {
   place: number;
   nickname: string;
-  knockouts: number;
-  ratingPoints: number;
+  ko_count: number;
+  base_points?: number;
+  total_points?: number;
+  status?: "resolved" | "unresolved" | "ambiguous" | "duplicate";
+  user_id?: string;
+  user?: FinishUser | null;
+  candidates?: FinishUser[];
 };
 
-const getPlaceWeights = (placesCount: number) => {
-  const base = [25, 17, 13, 10, 9, 8, 7, 6, 5];
-
-  if (placesCount <= base.length) {
-    return base.slice(0, placesCount);
-  }
-
-  const weights = [...base];
-  let next = 4;
-
-  while (weights.length < placesCount) {
-    weights.push(Math.max(1, next));
-    next -= 1;
-  }
-
-  return weights;
+type FinishUser = {
+  user_id: string;
+  username: string;
+  nick_name?: string;
+  first_name?: string;
+  last_name?: string;
 };
 
-const allocateRatingPoints = (pool: number, placesCount: number) => {
-  if (placesCount <= 0 || pool <= 0) return [];
+const parseFinishResults = (text: string): FinishRow[] => {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      const match = line.match(/^(\d+)[.)]?\s+(.+)$/);
+      const place = match ? Number(match[1]) : index + 1;
+      let nickname = match ? match[2].trim() : line;
+      let koCount = 0;
+      const koMatch = nickname.match(/\s+(\d+)\s*(?:ko|ко)$/i);
+      if (koMatch) {
+        koCount = Number(koMatch[1]);
+        nickname = nickname.slice(0, koMatch.index).trim();
+      }
+      return { place, nickname, ko_count: koCount };
+    });
+};
 
-  const weights = getPlaceWeights(placesCount);
-  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-
-  const points = weights.map((w) => Math.floor((pool * w) / totalWeight));
-  let remainder = pool - points.reduce((sum, p) => sum + p, 0);
-
-  let i = 0;
-  while (remainder > 0) {
-    points[i] += 1;
-    remainder -= 1;
-    i = (i + 1) % points.length;
-  }
-
-  return points;
+const finishUserLabel = (user: FinishUser) => {
+  const displayName = user.nick_name || user.username || user.first_name || user.user_id;
+  const details = [user.first_name, user.last_name].filter(Boolean).join(" ");
+  return details ? `${displayName} (${details}, ${user.user_id})` : `${displayName} (${user.user_id})`;
 };
 
 export default function GamesPage() {
@@ -88,11 +92,12 @@ export default function GamesPage() {
 
   const [finishOpen, setFinishOpen] = useState(false);
   const [finishGame, setFinishGame] = useState<GameType | null>(null);
+  const [finishText, setFinishText] = useState("");
   const [finishRows, setFinishRows] = useState<FinishRow[]>([]);
   const [finishParticipants, setFinishParticipants] = useState<any[]>([]);
+  const [finishUsers, setFinishUsers] = useState<FinishUser[]>([]);
+  const [finishError, setFinishError] = useState("");
   const [finishLoading, setFinishLoading] = useState(false);
-  const [totalRatingPool, setTotalRatingPool] = useState(0);
-  const [paidPlaces, setPaidPlaces] = useState(0);
 
   const load = () => {
     gamesAdminAPI.getGames().then((res) => setGames(res.data));
@@ -103,7 +108,7 @@ export default function GamesPage() {
   }, []);
 
   const handleCreate = async () => {
-    const { name, date, time, description, buyin, location, base_points } =
+    const { name, date, time, description, buyin, location, base_points, start_stack } =
       createGame;
 
     if (
@@ -113,7 +118,8 @@ export default function GamesPage() {
       !description ||
       !buyin ||
       !location ||
-      !base_points
+      !base_points ||
+      !start_stack
     ) {
       setErrorOpen(true);
       return;
@@ -138,36 +144,18 @@ export default function GamesPage() {
   const handleOpenComplete = async (game: GameType) => {
     setFinishGame(game);
     setFinishLoading(true);
+    setFinishText("");
+    setFinishRows([]);
+    setFinishError("");
 
     try {
-      const participantsRes = await participantsAPI.getByGame(game.game_id);
+      const [participantsRes, usersRes] = await Promise.all([
+        participantsAPI.getByGame(game.game_id),
+        usersAPI.getAll(),
+      ]);
       const participants = participantsRes.data || [];
       setFinishParticipants(participants);
-      const participantsCount = participants.length;
-      const topPlaces = Math.max(1, Math.ceil(participantsCount * 0.3));
-
-      const totalEntries = participants.reduce(
-        (sum: number, p: any) =>
-          sum + Number(p.entries || 0) + Number(p.rebuys || 0),
-        0
-      );
-
-      const fromEntries = totalEntries * 100;
-      const guarantee = Number(game.base_points || 100);
-      const pool = Math.max(fromEntries, guarantee);
-
-      const ratingByPlace = allocateRatingPoints(pool, topPlaces);
-
-      const rows: FinishRow[] = Array.from({ length: topPlaces }, (_, i) => ({
-        place: i + 1,
-        nickname: "",
-        knockouts: 0,
-        ratingPoints: ratingByPlace[i] || 0,
-      }));
-
-      setFinishRows(rows);
-      setTotalRatingPool(pool);
-      setPaidPlaces(topPlaces);
+      setFinishUsers(usersRes.data || []);
       setFinishOpen(true);
     } finally {
       setFinishLoading(false);
@@ -176,40 +164,115 @@ export default function GamesPage() {
 
   const updateFinishRow = (
     idx: number,
-    field: "nickname" | "knockouts",
-    value: string
+    field: "nickname" | "ko_count" | "user_id",
+    value: string | number
   ) => {
     setFinishRows((prev) =>
       prev.map((row, i) =>
         i === idx
           ? {
               ...row,
-              [field]: field === "knockouts" ? Math.max(0, Number(value || 0)) : value,
+              [field]: field === "ko_count" ? Math.max(0, Number(value || 0)) : value,
             }
           : row
       )
     );
   };
 
+  const applyParsedResults = () => {
+    const rows = parseFinishResults(finishText);
+    setFinishRows(rows);
+    setFinishError(rows.length ? "" : "Вставьте пронумерованный список игроков");
+  };
+
+  const finishPayload = () => ({
+    participants: finishParticipants.map((p) => ({
+      user_id: String(p.user),
+      entries: Number(p.entries || 1),
+      rebuys: Number(p.rebuys || 0),
+      addons: Number(p.addons || 0),
+    })),
+    results: finishRows.map((row) => ({
+      position: row.place,
+      nickname: row.nickname,
+      ko_count: Number(row.ko_count || 0),
+      user_id: row.user_id || row.user?.user_id || "",
+    })),
+  });
+
+  const applyPreviewRows = (rows: any[]) => {
+    setFinishRows(
+      rows.map((row) => ({
+        place: row.position,
+        nickname: row.nickname,
+        ko_count: row.ko_count,
+        base_points: row.base_points,
+        total_points: row.total_points,
+        status: row.status,
+        user_id: row.user?.user_id || "",
+        user: row.user || null,
+        candidates: row.candidates || [],
+      }))
+    );
+  };
+
+  const previewFinish = async () => {
+    if (!finishGame) return false;
+    if (!finishRows.length) {
+      setFinishError("Сначала разберите список игроков");
+      return false;
+    }
+
+    try {
+      setFinishLoading(true);
+      setFinishError("");
+      const res = await gamesAdminAPI.completePreview(finishGame.game_id, finishPayload());
+      applyPreviewRows(res.data.results || []);
+      if (res.data.unresolved?.length) {
+        setFinishError("Есть ники, которые нужно сопоставить с пользователем вручную");
+        return false;
+      }
+      return true;
+    } catch (e: any) {
+      setFinishError(e?.response?.data?.error || e?.message || "Не удалось проверить итоги");
+      return false;
+    } finally {
+      setFinishLoading(false);
+    }
+  };
+
   const submitFinish = async () => {
     if (!finishGame) return;
+    if (!finishRows.length) {
+      setFinishError("Сначала вставьте и разберите список игроков");
+      return;
+    }
+    const ready = await previewFinish();
+    if (!ready) return;
     if (!window.confirm("Завершить турнир и отправить в историю?")) return;
 
-    const payload = {
-      participants: finishParticipants.map((p) => ({
-        user_id: String(p.user),
-        entries: Number(p.entries || 1),
-        rebuys: Number(p.rebuys || 0),
-        addons: Number(p.addons || 0),
-      })),
-    };
-
-    await gamesAdminAPI.complete(finishGame.game_id, payload);
+    try {
+      setFinishLoading(true);
+      await gamesAdminAPI.complete(finishGame.game_id, finishPayload());
+    } catch (e: any) {
+      const preview = e?.response?.data?.preview;
+      if (preview?.results) {
+        applyPreviewRows(preview.results);
+        setFinishError("Есть ники, которые нужно сопоставить с пользователем вручную");
+        return;
+      }
+      setFinishError(e?.response?.data?.error || e?.message || "Не удалось завершить турнир");
+      return;
+    } finally {
+      setFinishLoading(false);
+    }
 
     setFinishOpen(false);
     setFinishGame(null);
+    setFinishText("");
     setFinishRows([]);
     setFinishParticipants([]);
+    setFinishError("");
     load();
   };
 
@@ -224,6 +287,7 @@ export default function GamesPage() {
       buyin: game.buyin,
       location: game.location,
       base_points: game.base_points || 100,
+      start_stack: game.start_stack || 33300,
       photo: game.photo || null,
     });
 
@@ -233,7 +297,7 @@ export default function GamesPage() {
   const handleUpdate = async () => {
     if (!selectedGame) return;
 
-    const { name, date, time, description, buyin, location, base_points } =
+    const { name, date, time, description, buyin, location, base_points, start_stack } =
       createGame;
 
     if (
@@ -243,7 +307,8 @@ export default function GamesPage() {
       !description ||
       !buyin ||
       !location ||
-      !base_points
+      !base_points ||
+      !start_stack
     ) {
       setErrorOpen(true);
       return;
@@ -377,12 +442,29 @@ export default function GamesPage() {
         <DialogContent>
           <Stack spacing={2} mt={1}>
             <Typography>
-              Пул очков: {totalRatingPool} | Призовые места (ТОП 30%): {paidPlaces}
+              Вставьте полный пронумерованный список игроков. Очки за место и KO посчитает backend.
             </Typography>
+            <TextField
+              label="Список результатов"
+              placeholder={"1. Ник\n2. Ник\n3. Ник"}
+              multiline
+              minRows={7}
+              value={finishText}
+              onChange={(e) => setFinishText(e.target.value)}
+            />
+            <Stack direction="row" spacing={2}>
+              <Button variant="outlined" onClick={applyParsedResults}>
+                Разобрать список
+              </Button>
+              <Button variant="outlined" onClick={previewFinish} disabled={finishLoading || !finishRows.length}>
+                Проверить начисление
+              </Button>
+            </Stack>
+            {finishError ? <Alert severity="warning">{finishError}</Alert> : null}
             <Divider />
 
             {finishRows.map((row, idx) => (
-              <Stack key={row.place} direction="row" spacing={2} alignItems="center">
+              <Stack key={`${row.place}-${idx}`} direction="row" spacing={2} alignItems="center">
                 <Typography sx={{ minWidth: 28 }}>{row.place}.</Typography>
                 <TextField
                   label="Ник"
@@ -391,17 +473,39 @@ export default function GamesPage() {
                   fullWidth
                 />
                 <TextField
-                  label="Нокауты"
+                  label="KO"
                   type="number"
-                  value={row.knockouts}
-                  onChange={(e) => updateFinishRow(idx, "knockouts", e.target.value)}
-                  sx={{ width: 140 }}
+                  value={row.ko_count}
+                  onChange={(e) => updateFinishRow(idx, "ko_count", e.target.value)}
+                  sx={{ width: 96 }}
                 />
+                {row.status && row.status !== "resolved" ? (
+                  <Autocomplete
+                    options={finishUsers}
+                    getOptionLabel={finishUserLabel}
+                    value={finishUsers.find((u) => u.user_id === row.user_id) || null}
+                    onChange={(_, value) => updateFinishRow(idx, "user_id", value?.user_id || "")}
+                    sx={{ minWidth: 280 }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label={row.status === "ambiguous" ? "Выберите пользователя" : "Пользователь"}
+                      />
+                    )}
+                  />
+                ) : (
+                  <TextField
+                    label="Пользователь"
+                    value={row.user ? finishUserLabel(row.user) : ""}
+                    InputProps={{ readOnly: true }}
+                    sx={{ minWidth: 260 }}
+                  />
+                )}
                 <TextField
-                  label="Очки рейтинга"
-                  value={row.ratingPoints}
+                  label="Очки"
+                  value={row.total_points ?? ""}
                   InputProps={{ readOnly: true }}
-                  sx={{ width: 170 }}
+                  sx={{ width: 120 }}
                 />
               </Stack>
             ))}
@@ -410,7 +514,7 @@ export default function GamesPage() {
 
         <DialogActions>
           <Button onClick={() => setFinishOpen(false)}>Отмена</Button>
-          <Button variant="contained" onClick={submitFinish}>
+          <Button variant="contained" onClick={submitFinish} disabled={finishLoading}>
             Завершить и в историю
           </Button>
         </DialogActions>
@@ -486,6 +590,18 @@ function Form({ createGame, setCreateGame, onUploadPhoto, photoUploading }: any)
           setCreateGame({
             ...createGame,
             base_points: Number(e.target.value),
+          })
+        }
+      />
+
+      <TextField
+        label="Стартовый стек"
+        type="number"
+        value={createGame.start_stack}
+        onChange={(e) =>
+          setCreateGame({
+            ...createGame,
+            start_stack: Number(e.target.value),
           })
         }
       />

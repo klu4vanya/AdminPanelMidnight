@@ -34,9 +34,29 @@ const theme = createTheme({
     }
   };
   
-  export const getRuntimeToken = () => localStorage.getItem("auth_token");
-  
-  const isAuth = () => !!getRuntimeToken();
+export const getRuntimeToken = () => localStorage.getItem("auth_token");
+
+const parseJwtPayload = (token: string | null) => {
+  if (!token) return null;
+
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = JSON.parse(window.atob(normalized));
+    return decoded;
+  } catch {
+    return null;
+  }
+};
+
+export const hasAdminToken = () => {
+  const payload = parseJwtPayload(getRuntimeToken());
+  return Boolean(payload?.adm);
+};
+
+const isAuth = () => !!getRuntimeToken() && hasAdminToken();
 
 const PrivateRoute = ({ children }: any) => {
   return isAuth() ? children : <Navigate to="/login" />;

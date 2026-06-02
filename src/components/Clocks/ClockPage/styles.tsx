@@ -11,7 +11,7 @@ export const MainContainer = styled.div`
 
 export const MainTitle = styled.div`
   text-align: center;
-  margin-bottom: 2rem;
+  /* margin-bottom: 1rem; */
   position: relative;
 
   h1 {

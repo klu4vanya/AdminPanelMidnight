@@ -17,6 +17,7 @@ export interface ProfileType {
 export interface GameType {
   name: string;
   base_points: number;
+  start_stack?: number;
   buyin: number;
   date: string;
   description: string;
@@ -95,6 +96,7 @@ export interface CreateGame {
     buyin: number,
     location: string,
     base_points: number,
+    start_stack: number,
     photo?: string | null
 }
 

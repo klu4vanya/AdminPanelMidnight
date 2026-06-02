@@ -35,6 +35,8 @@ export const gamesAdminAPI = {
   create: (data: any) => api.post("/games", data),
   update: (id: number, data: any) => api.patch(`/games/${id}`, data),
   delete: (id: number) => api.delete(`/games/${id}`),
+  completePreview: (id: number, data: any) =>
+    api.post(`/games/${id}/complete/preview`, data),
   complete: (id: number, data: any) => api.post(`/games/${id}/complete`, data),
   uploadPhoto: async (file: File) => {
     const form = new FormData();

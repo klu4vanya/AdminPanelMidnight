@@ -60,6 +60,7 @@ export default function MainPage() {
   const [timer, setTimer] = useState<TimerState>();
   const [levels, setLevels] = useState<any[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
+  const [linkedGame, setLinkedGame] = useState<any>(null);
   const [soundUnlocked, setSoundUnlocked] = useState(false);
 
   // 🔊 звук
@@ -104,21 +105,22 @@ export default function MainPage() {
 
         const gamesRes = await gamesAdminAPI.getGames();
 
-        const linkedGame = gamesRes.data.find(
+        const foundLinkedGame = gamesRes.data.find(
           (g: any) =>
             g.name?.trim().toLowerCase() ===
             tournament.name?.trim().toLowerCase()
         );
 
-        if (!linkedGame) {
+        if (!foundLinkedGame) {
           console.warn("Linked game not found");
           return;
         }
 
-        await loadParticipants(linkedGame.game_id);
+        setLinkedGame(foundLinkedGame);
+        await loadParticipants(foundLinkedGame.game_id);
 
         const interval = setInterval(() => {
-          loadParticipants(linkedGame.game_id);
+          loadParticipants(foundLinkedGame.game_id);
         }, 5000);
 
         return () => clearInterval(interval);
@@ -198,13 +200,18 @@ export default function MainPage() {
   const arrivedCount = participants.filter((p) => p.arrived).length;
   const outsCount = participants.filter((p) => p.is_out).length;
   const activePlayers = Math.max(arrivedCount - outsCount, 0);
+  const startStack = Number(linkedGame?.start_stack || 33300);
 
   const totalRebuys = participants.reduce(
     (sum, p) => sum + Number(p.rebuys ?? 0),
     0
   );
-  console.log(participants.filter((p) => p.arrived))
-  console.log(totalRebuys)
+  const totalAddonsChips = participants.reduce(
+    (sum, p) => sum + Number(p.addons ?? 0),
+    0
+  );
+  const totalChipsInGame =
+    arrivedCount * startStack + totalRebuys * startStack + totalAddonsChips;
 
   const test_data = [
     { title: "Игроки", data: `${activePlayers} / ${arrivedCount}` },
@@ -213,12 +220,12 @@ export default function MainPage() {
     {
       title: "Средний стек",
       data: activePlayers
-        ? `${Math.floor(((activePlayers + totalRebuys) * 30000) / activePlayers)}`
+        ? `${Math.floor(totalChipsInGame / activePlayers)}`
         : 0,
     },
     {
       title: "Фишек в игре",
-      data: `${arrivedCount * 30000 + totalRebuys * 30000}`,
+      data: `${totalChipsInGame}`,
     },
   ];
 
